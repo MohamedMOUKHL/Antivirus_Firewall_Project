@@ -1,35 +1,61 @@
 import socket
+import os
 
-# Blocklist of IPs to block
-blocklist = ["192.168.1.100", "10.0.0.1"]
+# Function to load blocklist from file
+def load_blocklist():
+    if not os.path.exists("blocklist.txt"):
+        return []
+    with open("blocklist.txt", "r") as f:
+        return f.read().splitlines()
 
-# Function to monitor connections
+# Function to log messages to file and console
 def log_to_file(message):
+    print(message)  # Print to console
     with open("firewall_logs.txt", "a") as log_file:
         log_file.write(message + "\n")
 
+# Function to monitor TCP traffic
 def monitor_traffic():
+    # Load the blocklist
+    blocklist = load_blocklist()
+    log_to_file(f"Blocklist loaded: {blocklist}")
+
+    # Create a TCP socket
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_address = ('localhost', 12345)
-    print(f"Starting firewall on {server_address[0]}:{server_address[1]}")
-    sock.bind(server_address)
-    sock.listen(5)
     
-    while True:
-        print("Waiting for a connection...")
-        connection, client_address = sock.accept()
-        try:
-            print(f"Connection from {client_address}")
-            if client_address[0] in blocklist:
-                log_to_file(f"Blocked connection from {client_address[0]}")
+    # Bind the socket to all interfaces and a specific port
+    server_address = ('0.0.0.0', 12345)
+    log_to_file(f"Starting firewall on {server_address[0]}:{server_address[1]}")
+    sock.bind(server_address)
+    
+    # Listen for incoming connections
+    sock.listen(5)
+    log_to_file("Firewall is running. Waiting for connections...")
+
+    try:
+        while True:
+            # Accept a connection
+            connection, client_address = sock.accept()
+            src_ip = client_address[0]
+            log_to_file(f"Connection from {src_ip}")
+
+            # Check if the IP is in the blocklist
+            if src_ip in blocklist:
+                log_to_file(f"Blocked connection from {src_ip}")
                 connection.close()
             else:
-                log_to_file(f"Allowed connection from {client_address[0]}")
+                log_to_file(f"Allowed connection from {src_ip}")
                 connection.sendall(b"Connection allowed.")
                 connection.close()
-        except Exception as e:
-            log_to_file(f"Error: {e}")
-        finally:
-            connection.close()
+    except KeyboardInterrupt:
+        log_to_file("Firewall stopped by user.")
+    except Exception as e:
+        log_to_file(f"Error: {e}")
+    finally:
+        # Close the socket
+        sock.close()
+        log_to_file("Firewall socket closed.")
+
 # Start the firewall
-monitor_traffic()
+if __name__ == "__main__":
+    monitor_traffic()

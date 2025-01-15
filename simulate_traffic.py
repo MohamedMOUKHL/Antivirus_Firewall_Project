@@ -13,4 +13,4 @@ def simulate_traffic(ip, port):
         sock.close()
 
 # Test traffic to the firewall
-simulate_traffic("localhost", 12345)
+simulate_traffic("192.168.1.100", 12345)
